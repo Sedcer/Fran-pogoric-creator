@@ -1,0 +1,10 @@
+@echo off
+cd C:\Users\pogor\OneDrive\Radna površina
+
+:loop
+mkdir Folder1\Subfolder1\Subfolder4
+mkdir Folder2\Subfolder2\Subfolder5
+mkdir Folder3\Subfolder3\Subfolder6
+cd C:\Users\pogor\OneDrive\Radna površina\Folder1
+
+gotta loop
